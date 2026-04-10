@@ -2,17 +2,28 @@ import optuna
 import numpy as np
 from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn.utils.class_weight import compute_sample_weight
+from sklearn.utils import resample
 from xgboost import XGBClassifier
+from sklearn.pipeline import Pipeline
 from src.models import build_preprocessor
 from src.config import CV_FOLDS, RANDOM_STATE
-from sklearn.pipeline import Pipeline
 
 optuna.logging.set_verbosity(optuna.logging.WARNING)
+
+EXTRA_NUMERIC = [
+    'Water_Stress', 'ET_Proxy', 'Soil_Health', 'Irrigation_Efficiency',
+    'Water_Demand', 'THI', 'Rain_ET_Balance', 'Growth_Stage_Num',
+    'Season_Num',
+    'Rainfall_mm_vs_group', 'Rainfall_mm_zscore',
+    'Temperature_C_vs_group', 'Temperature_C_zscore',
+    'Soil_Moisture_vs_group', 'Soil_Moisture_zscore',
+    'ET_Proxy_vs_group', 'ET_Proxy_zscore',
+]
 
 
 def objective(trial, X, y):
     params = {
-        "n_estimators": trial.suggest_int("n_estimators", 300, 2000),
+        "n_estimators": trial.suggest_int("n_estimators", 100, 1000),
         "learning_rate": trial.suggest_float("learning_rate", 0.01, 0.3, log=True),
         "max_depth": trial.suggest_int("max_depth", 3, 10),
         "min_child_weight": trial.suggest_int("min_child_weight", 1, 10),
@@ -28,26 +39,14 @@ def objective(trial, X, y):
         "n_jobs": -1
     }
 
-    model = XGBClassifier(**params)
-
-    # Reuse the same preprocessor from models.py
-    from src.models import build_pipeline
     pipe = Pipeline([
-        ('preprocessor', build_preprocessor(extra_numeric_cols=[
-            'Water_Stress', 'ET_Proxy', 'Soil_Health', 'Irrigation_Efficiency',
-            'Water_Demand', 'THI', 'Rain_ET_Balance', 'Growth_Stage_Num',
-            'Season_Num',
-            'Rainfall_mm_vs_group', 'Rainfall_mm_zscore',
-            'Temperature_C_vs_group', 'Temperature_C_zscore',
-            'Soil_Moisture_vs_group', 'Soil_Moisture_zscore',
-            'ET_Proxy_vs_group', 'ET_Proxy_zscore',
-        ])),
-        ('model', model)
+        ('preprocessor', build_preprocessor(extra_numeric_cols=EXTRA_NUMERIC)),
+        ('model', XGBClassifier(**params))
     ])
 
     sample_weights = compute_sample_weight('balanced', y=y)
     cv = StratifiedKFold(
-        n_splits=CV_FOLDS["gpu"],
+        n_splits=CV_FOLDS["tune"],
         shuffle=True,
         random_state=RANDOM_STATE
     )
@@ -63,9 +62,18 @@ def objective(trial, X, y):
 
 
 def run_tuning(X, y, n_trials: int = 50):
+    # Subsample for speed
+    print(f"Subsampling to 50k rows for tuning...")
+    X_sample, y_sample = resample(
+        X, y,
+        n_samples=50000,
+        random_state=RANDOM_STATE,
+        stratify=y
+    )
+
     study = optuna.create_study(direction="maximize")
     study.optimize(
-        lambda trial: objective(trial, X, y),
+        lambda trial: objective(trial, X_sample, y_sample),
         n_trials=n_trials,
         show_progress_bar=True
     )

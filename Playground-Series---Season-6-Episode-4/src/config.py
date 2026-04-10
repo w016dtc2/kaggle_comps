@@ -63,7 +63,8 @@ MODEL_PARAMS = {
 # ─── CV settings ──────────────────────────────────────────────────────────────
 CV_FOLDS = {
     "cpu": 3,
-    "gpu": 5
+    "gpu": 5,
+    "tune": 2
 }
 
 RANDOM_STATE = 42
