@@ -43,7 +43,9 @@ MODEL_PARAMS = {
         "device": "cpu",
         "learning_rate": 0.05,
         "random_state": 42,
-        "eval_metric": "mlogloss"
+        "eval_metric": "mlogloss",
+        "min_child_weight": 5,    
+"max_delta_step": 1, 
     },
     "gpu": {
         "n_estimators": 1000,
@@ -51,7 +53,9 @@ MODEL_PARAMS = {
         "device": "cpu",  # ← keep cpu, Kaggle handles parallelism
         "learning_rate": 0.05,
         "random_state": 42,
-        "eval_metric": "mlogloss"
+        "eval_metric": "mlogloss",
+        "min_child_weight": 5,   
+"max_delta_step": 1, 
     }
 }
 
