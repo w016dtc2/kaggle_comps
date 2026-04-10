@@ -4,6 +4,7 @@ from sklearn.metrics import balanced_accuracy_score, classification_report
 
 from src.config import (
     COMPUTE,
+    MODE,
     DATA_PATH,
     TEST_PATH,
     SUBMISSION_PATH,
@@ -54,7 +55,31 @@ def main():
     )
 
     # ─── Build pipeline ───────────────────────────────────────────────────────
-    pipe = build_pipeline()
+    if MODE == "tune":
+        from src.tune import run_tuning
+        from xgboost import XGBClassifier
+        from src.models import build_preprocessor
+        from sklearn.pipeline import Pipeline
+
+        print("\nRunning Optuna HPO...")
+        best_params = run_tuning(X_train, y_train)
+
+        pipe = Pipeline([
+            ('preprocessor', build_preprocessor(extra_numeric_cols=[
+                'Water_Stress', 'ET_Proxy', 'Soil_Health', 'Irrigation_Efficiency',
+                'Water_Demand', 'THI', 'Rain_ET_Balance', 'Growth_Stage_Num',
+                'Season_Num',
+                'Rainfall_mm_vs_group', 'Rainfall_mm_zscore',
+                'Temperature_C_vs_group', 'Temperature_C_zscore',
+                'Soil_Moisture_vs_group', 'Soil_Moisture_zscore',
+                'ET_Proxy_vs_group', 'ET_Proxy_zscore',
+            ])),
+            ('model', XGBClassifier(**best_params, n_jobs=-1))
+        ])
+
+    elif MODE == "train":
+        print("\nBuilding pipeline with config params...")
+        pipe = build_pipeline()
 
     # ─── CV ───────────────────────────────────────────────────────────────────
     print("\nRunning CV...")
@@ -88,7 +113,6 @@ def main():
     print(f"Submission saved to: {SUBMISSION_PATH[COMPUTE]}")
     print(submission.head())
     print(submission[TARGET].value_counts())
-
 
 if __name__ == "__main__":
     main() 
