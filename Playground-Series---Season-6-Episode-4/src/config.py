@@ -64,7 +64,7 @@ MODEL_PARAMS = {
 CV_FOLDS = {
     "cpu": 3,
     "gpu": 5,
-    "tune": 2
+    "tune": 3
 }
 
 RANDOM_STATE = 42

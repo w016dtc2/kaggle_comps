@@ -66,7 +66,7 @@ def run_tuning(X, y, n_trials: int = 50):
     print(f"Subsampling to 50k rows for tuning...")
     X_sample, y_sample = resample(
         X, y,
-        n_samples=50000,
+        n_samples=350000,
         random_state=RANDOM_STATE,
         stratify=y
     )
