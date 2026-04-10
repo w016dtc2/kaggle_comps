@@ -48,7 +48,7 @@ MODEL_PARAMS = {
     "gpu": {
         "n_estimators": 1000,
         "tree_method": "hist",
-        "device": "cuda",
+        "device": "cpu",  # ← keep cpu, Kaggle handles parallelism
         "learning_rate": 0.05,
         "random_state": 42,
         "eval_metric": "mlogloss"
