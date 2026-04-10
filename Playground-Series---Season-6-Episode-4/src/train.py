@@ -1,6 +1,7 @@
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import balanced_accuracy_score, classification_report
+from sklearn.utils.class_weight import compute_sample_weight
 
 from src.config import (
     COMPUTE,
@@ -56,13 +57,17 @@ def main():
 
     # ─── Build pipeline ───────────────────────────────────────────────────────
     if MODE == "tune":
-        from src.tune import run_tuning
+        from src.tune import run_tuning, compute_aggressive_weights
         from xgboost import XGBClassifier
         from src.models import build_preprocessor
         from sklearn.pipeline import Pipeline
 
         print("\nRunning Optuna HPO...")
         best_params = run_tuning(X_train, y_train)
+
+        # Extract high_multiplier before passing params to XGBClassifier
+        high_multiplier = best_params.pop('high_multiplier')
+        print(f"Best high_multiplier: {high_multiplier:.4f}")
 
         pipe = Pipeline([
             ('preprocessor', build_preprocessor(extra_numeric_cols=[
@@ -77,17 +82,23 @@ def main():
             ('model', XGBClassifier(**best_params, n_jobs=-1))
         ])
 
+        # Consistent aggressive weights for all stages
+        train_weights = compute_aggressive_weights(y_train, high_multiplier)
+        full_weights = compute_aggressive_weights(y_encoded, high_multiplier)
+
     elif MODE == "train":
         print("\nBuilding pipeline with config params...")
         pipe = build_pipeline()
+        train_weights = compute_sample_weight('balanced', y=y_train)
+        full_weights = compute_sample_weight('balanced', y=y_encoded)
 
     # ─── CV ───────────────────────────────────────────────────────────────────
     print("\nRunning CV...")
-    run_cv(pipe, X_train, y_train)
+    run_cv(pipe, X_train, y_train, sample_weights=train_weights)
 
     # ─── Holdout eval ─────────────────────────────────────────────────────────
     print("\nFitting on train, evaluating on holdout...")
-    pipe.fit(X_train, y_train)
+    pipe.fit(X_train, y_train, model__sample_weight=train_weights)
     holdout_preds = pipe.predict(X_holdout)
     holdout_score = balanced_accuracy_score(y_holdout, holdout_preds)
     print(f"Holdout Balanced Accuracy: {holdout_score:.4f}")
@@ -99,7 +110,7 @@ def main():
 
     # ─── Refit on full training data ──────────────────────────────────────────
     print("\nRefitting on full training data...")
-    pipe.fit(X, y_encoded)
+    pipe.fit(X, y_encoded, model__sample_weight=full_weights)
 
     # ─── Generate submission ──────────────────────────────────────────────────
     print("\nGenerating submission...")
@@ -114,7 +125,6 @@ def main():
     print(submission.head())
     print(submission[TARGET].value_counts())
 
+
 if __name__ == "__main__":
-    main() 
-
-
+    main()
