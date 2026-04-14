@@ -74,11 +74,13 @@ def objective(trial, X, y):
     return scores.mean()
 
 
+n_samples = 10000
+
 def run_tuning(X, y, n_trials: int = 50):
-    print(f"Subsampling to 350k rows for tuning...")
+    print(f"Subsampling to {n_samples}k rows for tuning...")
     X_sample, y_sample = resample(
         X, y,
-        n_samples=10000,
+        n_samples=n_samples,
         random_state=RANDOM_STATE,
         stratify=y
     )
