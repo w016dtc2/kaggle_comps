@@ -81,11 +81,13 @@ def build_pipeline(compute: str = COMPUTE):
     ])
 
 
-def run_cv(pipe, X, y_encoded, compute: str = COMPUTE):
+def run_cv(pipe, X, y_encoded, sample_weights=None, compute: str = COMPUTE):
     """
     Runs stratified CV. Expects y to already be label encoded.
     """
-    sample_weights = compute_sample_weight('balanced', y=y_encoded)
+    if sample_weights is None:
+        sample_weights = compute_sample_weight('balanced', y=y_encoded)
+
     cv = StratifiedKFold(
         n_splits=CV_FOLDS[compute],
         shuffle=True,
@@ -101,3 +103,5 @@ def run_cv(pipe, X, y_encoded, compute: str = COMPUTE):
 
     print(f"CV Balanced Accuracy: {scores.mean():.4f} +/- {scores.std():.4f}")
     return scores
+
+
