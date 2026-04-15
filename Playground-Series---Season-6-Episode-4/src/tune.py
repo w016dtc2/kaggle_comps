@@ -74,7 +74,7 @@ def objective(trial, X, y):
     return scores.mean()
 
 
-n_samples = 400000
+n_samples = 50000
 
 def run_tuning(X, y, n_trials: int = 50):
     print(f"Subsampling to {n_samples}k rows for tuning...")

@@ -65,7 +65,6 @@ def main():
         print("\nRunning Optuna HPO...")
         best_params = run_tuning(X_train, y_train)
 
-        # Extract high_multiplier before passing params to XGBClassifier
         high_multiplier = best_params.pop('high_multiplier')
         print(f"Best high_multiplier: {high_multiplier:.4f}")
 
@@ -82,43 +81,59 @@ def main():
             ('model', XGBClassifier(**best_params, n_jobs=-1))
         ])
 
-        # Consistent aggressive weights for all stages
         train_weights = compute_aggressive_weights(y_train, high_multiplier)
         full_weights = compute_aggressive_weights(y_encoded, high_multiplier)
 
     elif MODE == "train":
-        print("\nBuilding pipeline with config params...")
-        pipe = build_pipeline()
-        train_weights = compute_sample_weight('balanced', y=y_train)
-        full_weights = compute_sample_weight('balanced', y=y_encoded)
+        high_multiplier = 3.0
+        train_weights = compute_aggressive_weights(y_train, high_multiplier)
+        full_weights = compute_aggressive_weights(y_encoded, high_multiplier)
 
-    # ─── CV ───────────────────────────────────────────────────────────────────
-    print("\nRunning CV...")
-    run_cv(pipe, X_train, y_train, sample_weights=train_weights)
+        if MODEL_MODE == "single":
+            print("\nBuilding single pipeline with config params...")
+            pipe = build_pipeline()
 
-    # ─── Holdout eval ─────────────────────────────────────────────────────────
-    print("\nFitting on train, evaluating on holdout...")
-    pipe.fit(X_train, y_train, model__sample_weight=train_weights)
-    holdout_preds = pipe.predict(X_holdout)
-    holdout_score = balanced_accuracy_score(y_holdout, holdout_preds)
-    print(f"Holdout Balanced Accuracy: {holdout_score:.4f}")
-    print("\nClassification Report:")
-    print(classification_report(
-        y_holdout, holdout_preds,
-        target_names=le.classes_
-    ))
+        elif MODEL_MODE == "ensemble":
+            from src.ensemble import run_ensemble, run_ensemble_cv
+            print("\nRunning ensemble...")
 
-    # ─── Refit on full training data ──────────────────────────────────────────
-    print("\nRefitting on full training data...")
-    pipe.fit(X, y_encoded, model__sample_weight=full_weights)
+    # ─── CV + Holdout ─────────────────────────────────────────────────────────────
+    if MODEL_MODE == "single" or MODE == "tune":
+        print("\nRunning CV...")
+        run_cv(pipe, X_train, y_train, sample_weights=train_weights)
 
-    # ─── Generate submission ──────────────────────────────────────────────────
+        print("\nFitting on train, evaluating on holdout...")
+        pipe.fit(X_train, y_train, model__sample_weight=train_weights)
+        holdout_preds = pipe.predict(X_holdout)
+        holdout_score = balanced_accuracy_score(y_holdout, holdout_preds)
+        print(f"Holdout Balanced Accuracy: {holdout_score:.4f}")
+        print("\nClassification Report:")
+        print(classification_report(y_holdout, holdout_preds, target_names=le.classes_))
+
+        print("\nRefitting on full training data...")
+        pipe.fit(X, y_encoded, model__sample_weight=full_weights)
+        final_preds = pipe.predict(X_test)
+        submission_preds = le.inverse_transform(final_preds)
+
+    elif MODEL_MODE == "ensemble" and MODE == "train":
+        print("\nRunning ensemble CV...")
+        run_ensemble_cv(X_train, y_train, sample_weights=train_weights)
+
+        print("\nFitting ensemble on full data...")
+        final_preds, pipes = run_ensemble(
+            X, X_test, y_encoded,
+            sample_weights=full_weights,
+            voting='soft'
+        )
+        submission_preds = le.inverse_transform(final_preds)
+
+    # ─── Generate submission ──────────────────────────────────────────────────────
     print("\nGenerating submission...")
-    submission_preds = le.inverse_transform(pipe.predict(X_test))
     submission = pd.DataFrame({
         ID_COL: test_ids,
         TARGET: submission_preds
     })
+
 
     submission.to_csv(SUBMISSION_PATH[COMPUTE], index=False)
     print(f"Submission saved to: {SUBMISSION_PATH[COMPUTE]}")
