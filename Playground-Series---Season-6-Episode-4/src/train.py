@@ -6,6 +6,8 @@ from sklearn.utils.class_weight import compute_sample_weight
 from src.config import (
     COMPUTE,
     MODE,
+    MODEL_MODE,
+    HIGH_MULTIPLIER,
     DATA_PATH,
     TEST_PATH,
     SUBMISSION_PATH,
@@ -85,7 +87,8 @@ def main():
         full_weights = compute_aggressive_weights(y_encoded, high_multiplier)
 
     elif MODE == "train":
-        high_multiplier = 3.0
+        high_multiplier = HIGH_MULTIPLIER
+        print(f"Using default high_multiplier: {high_multiplier}")
         train_weights = compute_aggressive_weights(y_train, high_multiplier)
         full_weights = compute_aggressive_weights(y_encoded, high_multiplier)
 

@@ -1,7 +1,8 @@
 # ─── Single dial to switch between environments ───────────────────────────────
 COMPUTE = "cpu"  # change to "gpu" for Kaggle runs
 MODE = "tune"        # "tune", "train"
-MODEL_MODE = "single"  # "single", "ensemble"
+MODEL_MODE = "ensemble"  # "single", "ensemble"
+HIGH_MULTIPLIER = 3.0  
 
 # ─── Paths ────────────────────────────────────────────────────────────────────
 DATA_PATH = {
